@@ -1,12 +1,15 @@
 name: nuclei_segmentation_cellpose
 channels:
-  - conda-forge
+    - conda-forge
 dependencies:
-  - python=3.12
-  - pip
-  - pip:
-    - opencv-python
-    - numpy<2
-    - cellpose
-    - git+https://github.com/lettlini/core-data-utils
-    - toml
+    - python=3.12
+    - pip
+    - pip:
+        - opencv-python
+        - numpy<2
+        - cellpose
+        - toml
+        - torch==2.7.1 --index-url https://download.pytorch.org/whl/cu121
+        - torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cu121
+        - torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu121
+        - git+https://github.com/lettlini/core-data-utils
