@@ -9,4 +9,5 @@ dependencies:
     - tqdm
     - numpy
     - git+https://github.com/lettlini/core-data-utils
+    - git+https://github.com/lhillma/Cell2Image.git
     - toml

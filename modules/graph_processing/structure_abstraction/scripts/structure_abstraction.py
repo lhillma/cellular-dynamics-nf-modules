@@ -6,6 +6,7 @@ from typing import Any
 import cv2
 import numpy as np
 import toml
+from cell2image import shape as cshape
 from core_data_utils.datasets import BaseDataSet, BaseDataSetEntry
 from core_data_utils.transformations import (
     BaseDataSetTransformation,
@@ -17,9 +18,13 @@ class ObjectInformationTransform(BaseDataSetTransformation):
     def __init__(
         self,
         mum_px: float,
+        neighbour_order: int = 8,
     ) -> None:
 
         self._mum_per_px: float = mum_px
+        self._perimeter_estimator = cshape.get_perimeter_estimator(
+            neighbour_order=neighbour_order
+        )
 
         super().__init__()
 
@@ -45,15 +50,20 @@ class ObjectInformationTransform(BaseDataSetTransformation):
         if not len(contours) == (num_objects - 1):
             raise RuntimeError("Number of contours != number of objects")
 
-        for contour in contours:
+        labels = np.setdiff1d(np.unique(image), 0)
+        perimeters = {
+            label: self._perimeter_estimator(image, label) for label in labels
+        }
 
+        for contour in contours:
             contour2labelim = np.unique(
                 labelim[contour.squeeze()[:, 1], contour.squeeze()[:, 0]]
             ).item()
 
             original_label = np.unique(image[labelim == contour2labelim]).item()
 
-            perimeter = cv2.arcLength(contour, closed=True)
+            # perimeter = cv2.arcLength(contour, closed=True)
+            perimeter = perimeters[original_label]
             area = cv2.contourArea(contour)
 
             (_, (minor_axis, major_axis), angle) = cv2.fitEllipse(contour)
@@ -98,9 +108,9 @@ class MergeCellNucleiInformation(BaseMultiDataSetTransformation):
             assert len(ccids) == 1, f"{ccids}"
             cell_counterpart = ccids.item()
 
-            assert (
-                cell_counterpart not in merged_properties
-            ), f"Cell with ID '{cell_counterpart}' already in merged properties dict"
+            assert cell_counterpart not in merged_properties, (
+                f"Cell with ID '{cell_counterpart}' already in merged properties dict"
+            )
 
             merged_properties[cell_counterpart] = {
                 f"cell_{k}": v for k, v in cell_props[cell_counterpart].items()
@@ -207,7 +217,6 @@ class IdentifyNeighborsTransformation(BaseMultiDataSetTransformation):
 
 
 if __name__ == "__main__":
-
     mp.set_start_method("spawn")
 
     parser = ArgumentParser()
@@ -234,6 +243,13 @@ if __name__ == "__main__":
         type=int,
         help="CPU cores to use.",
     )
+    parser.add_argument(
+        "--neighbour_order",
+        required=False,
+        default=8,
+        type=int,
+        help="Neighbour order to use for perimeter estimation. Default: 8",
+    )
 
     args = parser.parse_args()
 
@@ -245,10 +261,10 @@ if __name__ == "__main__":
     cells_labelled_ds = BaseDataSet.from_pickle(args.infile_cells)
     nuclei_labelled_ds = BaseDataSet.from_pickle(args.infile_nuclei)
 
-    cell_properties = ObjectInformationTransform(mum_per_px)(
+    cell_properties = ObjectInformationTransform(mum_per_px, args.neighbour_order)(
         cells_labelled_ds, cpus=args.cpus
     )
-    nuclei_properties = ObjectInformationTransform(mum_per_px)(
+    nuclei_properties = ObjectInformationTransform(mum_per_px, args.neighbour_order)(
         nuclei_labelled_ds, cpus=args.cpus
     )
 
