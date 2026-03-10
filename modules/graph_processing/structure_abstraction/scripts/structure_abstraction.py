@@ -22,9 +22,7 @@ class ObjectInformationTransform(BaseDataSetTransformation):
     ) -> None:
 
         self._mum_per_px: float = mum_px
-        self._perimeter_estimator = cshape.get_perimeter_estimator(
-            neighbour_order=neighbour_order
-        )
+        self._neighbour_order = neighbour_order
 
         super().__init__()
 
@@ -51,8 +49,13 @@ class ObjectInformationTransform(BaseDataSetTransformation):
             raise RuntimeError("Number of contours != number of objects")
 
         labels = np.setdiff1d(np.unique(image), 0)
+
+        perimeter_estimator = cshape.get_perimeter_estimator(
+            neighbour_order=self._neighbour_order
+        )
+
         perimeters = {
-            label: self._perimeter_estimator(image, label) for label in labels
+            label: perimeter_estimator(image, label) for label in labels
         }
 
         for contour in contours:
