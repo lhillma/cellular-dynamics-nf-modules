@@ -54,10 +54,6 @@ class ObjectInformationTransform(BaseDataSetTransformation):
             neighbour_order=self._neighbour_order
         )
 
-        perimeters = {
-            label: perimeter_estimator(image, label) for label in labels
-        }
-
         for contour in contours:
             contour2labelim = np.unique(
                 labelim[contour.squeeze()[:, 1], contour.squeeze()[:, 0]]
@@ -65,9 +61,11 @@ class ObjectInformationTransform(BaseDataSetTransformation):
 
             original_label = np.unique(image[labelim == contour2labelim]).item()
 
-            # perimeter = cv2.arcLength(contour, closed=True)
-            perimeter = perimeters[original_label]
-            area = cv2.contourArea(contour)
+            perimeter_cv = cv2.arcLength(contour, closed=True)
+            perimeter = perimeter_estimator(image, original_label)
+
+            area_cv = cv2.contourArea(contour)
+            area = cshape.calc_area(image, original_label)
 
             (_, (minor_axis, major_axis), angle) = cv2.fitEllipse(contour)
 
@@ -78,7 +76,9 @@ class ObjectInformationTransform(BaseDataSetTransformation):
 
             object_properties[original_label] = {
                 "area_mum_squared": area * (self._mum_per_px**2),
+                "area_cv_mum_squared": area_cv * (self._mum_per_px**2),
                 "perimeter_mum": perimeter * self._mum_per_px,
+                "perimeter_cv_mum": perimeter_cv * self._mum_per_px,
                 "major_axis_mum": major_axis * self._mum_per_px,
                 "minor_axis_mum": minor_axis * self._mum_per_px,
                 "major_axis_angle_rad": ((np.pi * angle) / 180.0) - np.pi / 2,
