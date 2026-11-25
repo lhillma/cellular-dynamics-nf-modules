@@ -123,7 +123,10 @@ class D2minAnnotationTransformation:
 
         D2min = min_result.fun.item() * (self._mum_per_px**2)
 
-        return D2min
+        # mean squared local neighbor distance
+        d2 = (dij_now**2).sum(axis=1).mean() * (self._mum_per_px**2)
+
+        return D2min, d2
 
     def __call__(self, graph_dataset, property_suffix: Optional[str] = None) -> Any:
 
@@ -132,7 +135,7 @@ class D2minAnnotationTransformation:
 
         for sindex in trange(len(graph_dataset)):
             for nodeid, nodeprops in graph_dataset[sindex].data.nodes(data=True):
-                current_D2min = self._annotate_single_node(
+                current_D2min, d2 = self._annotate_single_node(
                     graph_dataset=graph_dataset,
                     node_label=nodeid,
                     sindex=sindex,
@@ -140,6 +143,7 @@ class D2minAnnotationTransformation:
                 )
 
                 nodeprops[f"D2min_{psuff}"] = current_D2min
+                nodeprops["local_mean_squared_neighbor_distance"] = d2
 
         return graph_dataset
 
