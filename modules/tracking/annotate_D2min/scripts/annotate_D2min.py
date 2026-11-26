@@ -71,14 +71,25 @@ class D2minAnnotationTransformation:
         node_label: int,
         sindex: int,
         lag_time_frames: int,
-    ):
+    ) -> tuple[float, float]:
+        """
+        Computes D2min and the mean squared neighbor distance for a single node.
+
+        Both quantities are computed over the same set of neighbors (those that
+        can be tracked for the full lag time), so their ratio is a
+        density-independent measure of non-affine motion.
+
+        Returns:
+        tuple: (D2min, mean squared neighbor distance), both in mum^2.
+            Both are NaN if D2min cannot be computed.
+        """
 
         future_own_label = get_future_label(
             graph_dataset, node_label, lag_time_frames=lag_time_frames, sindex=sindex
         )
 
         if future_own_label is None:
-            return np.nan
+            return np.nan, np.nan
 
         current_own_position = get_object_positions(
             graph_dataset, node_label, sindex=sindex
@@ -104,7 +115,7 @@ class D2minAnnotationTransformation:
                 )
 
         if len(neighbor_current_positions) <= self._minimum_neighbors:
-            return np.nan
+            return np.nan, np.nan
 
         neighbor_current_positions = np.vstack(neighbor_current_positions)
         neighbor_future_positions = np.vstack(neighbor_future_positions)
@@ -119,11 +130,11 @@ class D2minAnnotationTransformation:
             tol=1e-3,
         )
         if not min_result.success:
-            return np.nan
+            return np.nan, np.nan
 
         D2min = min_result.fun.item() * (self._mum_per_px**2)
 
-        # mean squared local neighbor distance
+        # mean squared distance to the same neighbors used for D2min (current frame)
         d2 = (dij_now**2).sum(axis=1).mean() * (self._mum_per_px**2)
 
         return D2min, d2
@@ -143,7 +154,10 @@ class D2minAnnotationTransformation:
                 )
 
                 nodeprops[f"D2min_{psuff}"] = current_D2min
-                nodeprops["local_mean_squared_neighbor_distance"] = d2
+                nodeprops[f"local_mean_squared_neighbor_distance_{psuff}"] = d2
+                nodeprops[f"D2min_normalized_{psuff}"] = (
+                    current_D2min / d2 if d2 > 0 else np.nan
+                )
 
         return graph_dataset
 
